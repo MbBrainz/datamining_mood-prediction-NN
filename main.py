@@ -6,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime
 DATAFILE = "data/dataset_mood_smartphone.csv"
 #%%
 
@@ -36,9 +37,6 @@ display(id_var_df.head())
 # in other words: the count column for example shows a number of times it counted a datapoint per id. if the dataset were complete, it would show ONLY 27 in this column.
 # this is not the case however, which means not for all ids we have all the variable types available. 
 # 
-# #TODO: decide on which variable we should apply what to do with these "structural inconsistencies"
-# #TODO: determine which of these values are redundant aka analyse single variables piece by piece
-# #TODO: Check for nan/corrupt values
 # It shows that there is a significant difference between the amount of data collected per id **AND**
 # that some values are missing.
 # To help understand: for example look at the first row: it counted 27 times that there are 
@@ -84,7 +82,58 @@ circ_df = raw_df[(raw_df["variable"] == "circumplex.valence") | (raw_df["variabl
 # raw_df[raw_df["value"]=="mood"]
 circ_df[(circ_df["value"] != -2) & (circ_df["value"] != -1) & (circ_df["value"] != 0) & (circ_df["value"] != 1) & (circ_df["value"] != 2) ]
 # %%
-circ_df[pd.isnull(circ_df["value"])] #TODO: Ask TA what to do with these
+circ_df[pd.isnull(circ_df["value"])] #TODO: Ask TA what to do with these and fix
 # %%
 
 # TODO: Boxx plot of all variables
+
+# %% [markdown]
+# # data division:
+# - mood: final 
+# - circumplex [arousal, valence]
+# - countables [call, sms]
+# - time based [ appCat.all ]
+# - screen time 
+#%%
+# group by data types
+# %%
+# AppCat
+appcat_df = raw_df.query('variable.str.startswith("appCat.")')
+appcat_df["variable"] = appcat_df["variable"].apply(lambda x: x.removeprefix("appCat."))
+
+apcat_list = appcat_df.variable.drop_duplicates().values
+print(apcat_list)
+
+# %%
+appcat_avg_df = appcat_df.groupby(by=["id", "date", "variable"])["value"].sum().reset_index()
+appcat_avg_df["day"] = appcat_avg_df["date"].apply(lambda x: pd.to_datetime(x).day_name())
+appcat_avg_df.head()
+#%%
+#  ------------ PIEPLOT ---------------------
+sorted_pie_df = pd.DataFrame(appcat_avg_df.groupby(by=["variable"])["value"].mean().reset_index())
+# sorted_pie_df = sorted_pie_df.set_index('variable')
+# ax = sorted_pie_df.plot.pie(y="value", autopct=lambda x: "yea")
+values = (sorted_pie_df["value"].values/60).round(1)
+total = sum(values)
+explode=[0.05]* len(values)
+
+plt.pie(sorted_pie_df["value"].values, labels=np.array((sorted_pie_df["value"].values/60).round(1)),radius=1.0, shadow=True,autopct='%1.1f%%', explode=explode)
+plt.legend(sorted_pie_df["variable"].values,bbox_to_anchor=(1.04, 0.9), loc='upper left', borderaxespad=0)
+plt.xlabel("usage in minutes")
+plt.savefig("figures/stats_mean_app_usage.pdf", bbox_inches="tight")
+
+# %%
+# ax = sns.scatterplot(data=appcat_avg_df, x="variable", y="value", hue="id")
+plot_id = "AS14.01"
+ax = sns.relplot(data=appcat_avg_df[appcat_avg_df["id"]==plot_id].drop(columns=["date"]), x="variable", y="value", row="day")
+# labels = ax.get_xticklabels()
+# plt.setp(labels, rotation=45)
+# ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
+plt.title("time per app")
+
+# %%
+# COMPUTE the number of calls/msn per day per user 
+callsms_df = raw_df[(raw_df["variable"] == "sms") |
+                    (raw_df["variable"] == "call")]
+callsms_m_day_df = callsms_df.groupby(by=["id", "date", "variable"])["value"].sum().reset_index()
+# %%
