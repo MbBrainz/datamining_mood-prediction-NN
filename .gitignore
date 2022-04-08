@@ -130,6 +130,7 @@ dmypy.json
 
 # vscode stuff
 .vscode/
+.DS_store
 # local history tracking
 .lh/ 
 
