@@ -153,14 +153,17 @@ sns.catplot(data=appcat_avg_df[["id","day", "variable","value"]], x="day", y="va
 # plt.title("time per app")
 #%%
 # TODO: Log values give error for zero now! #FIXME
-# sns.set_theme(style="ticks", palette="tab10")
-# appcat_avg_df["log (value (minutes))"] = np.log(appcat_avg_df["value"]/60)
-# ax = sns.violinplot(data=appcat_avg_df.drop(columns=["date"]), x="variable", y="log (value (minutes))", showfliers = True )
-# sns.despine(offset=10, trim=True)
-# labels = ax.get_xticklabels()
-# plt.setp(labels, rotation=45)
-# plt.tight_layout()
-# plt.savefig("figures/boxplot_app_usage_without_outliers.pdf", bbox_inches="tight")
+sns.set_theme(style="ticks", palette="tab10")
+appcat_avg_df["log(value)"] = np.log(appcat_avg_df["value"]+1)
+appcat_log_df = appcat_avg_df
+appcat_log_df["value"] = np.log(appcat_avg_df["value"]+1)
+
+ax = sns.violinplot(data=appcat_avg_df.drop(columns=["date"]), x="variable", y="log(value)", showfliers = True )
+sns.despine(offset=10, trim=True)
+labels = ax.get_xticklabels()
+plt.setp(labels, rotation=45)
+plt.tight_layout()
+plt.savefig("figures/violinplot_app_usage_log(x+1).pdf", bbox_inches="tight")
 
 
 #%%
@@ -170,13 +173,14 @@ sns.catplot(data=appcat_avg_df[["id","day", "variable","value"]], x="day", y="va
 # COMPUTE  the number of calls/msn per day per user 
 callsms_df = raw_df[(raw_df["variable"] == "sms") |
                     (raw_df["variable"] == "call")]
-# callsms_avg_day_df = callsms_df.groupby(by=["id", "date", "variable"])["value"].sum().reset_index()
+
 callsms_avg_df = callsms_df.set_index("time") \
     .groupby(by=["id","variable"])["value"] \
     .resample("1D").sum().reset_index()
     
 callsms_avg_df = callsms_avg_df.rename(columns={"time":"date"})
 callsms_avg_df
+# callsms_avg_df.groupby(by=["id","variable"]).describe()
 # %%
 # TODO: Handle activity properly
 raw_df[raw_df["variable"] == "activity"].sort_index() #.groupby(by=["id","date"]).count()
@@ -189,17 +193,46 @@ screen_avg_df = screen_df.set_index("time") \
     .groupby(by=["id","variable"])["value"] \
     .resample("1D").sum().reset_index()
 screen_avg_df= screen_avg_df.rename(columns={"time":"date"})
-
 screen_avg_df
+
+#%%
+# screen_avg_df["log(value)"] = np.log(screen_avg_df["value"])
+#TODO: Show thre boys and discuss if we want to log these values as well
+
+sns.boxenplot(data=screen_avg_df, x="id", y="log(value)")
 # %%
 
-avg_day_df = pd.concat([callsms_avg_df,appcat_avg_df,screen_avg_df])[["id","date","variable", "value"]]
+avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df])[["id","date","variable", "value"]])
 avg_day_df
 
 # %%
-raw_train_df = avg_day_df.pivot(index=["id","date"],columns=["variable"], values=["value"])
+raw_train_df = avg_day_df.pivot(index=["id","date"],columns=["variable"], values=["value"])["value"]
 raw_train_df
 
 # %%
+# checking if my assumption is correct:
+# all the values are in the beginning of the dataset and if the builtin is zero, then all the other appcat values are also zero.
+
+raw_train_df[pd.isnull(raw_train_df["builtin"])]
+# %%
+# train_df = raw_train_df.drop(pd.isnull(raw_train_df["builtin"]))
+train_df = pd.DataFrame(raw_train_df[~pd.isnull(raw_train_df["builtin"])])
+
+# %%
+train_df = train_df.fillna(0)
+display(train_df)
+
+# %%
+from sklearn.preprocessing import MinMaxScaler
+
+scaler = MinMaxScaler(feature_range=(0,1))
+
+# 
+# This applies a scalar transform per id per column
+df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
 
 
+
+# %%
+df_scaled
+# %%
