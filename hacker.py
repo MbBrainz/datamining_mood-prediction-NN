@@ -72,9 +72,111 @@ for i in Individuals_list:
     df[i] = group.reset_index().value
   
 #%%
+import seaborn as sns
+#%%
+Variables = raw_df.loc[:,["variable"]]
+Vars = Variables.drop_duplicates(subset="variable", keep='first', inplace=False)
+Vars
+
+Variable_A= []
+
+for (columnName, columnData) in Vars.iteritems():
+    Variable_A.append(columnData.values)
+
+Vars_list  = []
+
+for i in Variable_A:
+  for j in i:
+    Vars_list.append(j)
+
+Vars_list
+
+#%%
+
+
+
+vars_val = raw_df.loc[:,["id", "variable","value"]]
+sns.pairplot(vars_val)
+
+# mood = id1[id1["variable"] == "mood"]
+
+# mood
+#%%
+
+#appCAT
+#builtin
+builtin = vars_val[vars_val["variable"] == "appCat.builtin"]
+#communications 
+communication = vars_val[vars_val["variable"] == "appCat.communication"]
+#entertainment 
+entertainment = vars_val[vars_val["variable"] == "appCat.entertainment"]
+#finance
+finance = vars_val[vars_val["variable"] == "appCat.finance"]
+#game
+game = vars_val[vars_val["variable"] == "appCat.game"]
+#office
+office = vars_val[vars_val["variable"] == "appCat.office"]
+#office
+other = vars_val[vars_val["variable"] == "appCat.other"]
+#social
+social = vars_val[vars_val["variable"] == "appCat.social"]
+#travel
+travel = vars_val[vars_val["variable"] == "appCat.travel"]
+#unknown
+unknown = vars_val[vars_val["variable"] == "appCat.unknown"]
+#utilities
+utilities = vars_val[vars_val["variable"] == "appCat.utilities"]
+# weather
+weather = vars_val[vars_val["variable"] == "appCat.weather"]
+#%%
+
+dfpairs = pd.DataFrame({'mood': mood.value })
+
+
+
+# dfpairs['builtin'] = communication.value
+
+com = communication.value.to_list()
+
+dfpairs['builtin'] = communication.value.to_list()
+
+dfpairs
+
+#%%
+
+
+for i in Vars_list:
+
+  plt.figure(figsize=(10,5))
+  i = sns.lineplot(x="id", y="value", data=raw_df[raw_df["variable"]==i])
+  i.set_ylabel(i, fontsize = 15)
+  i.set_xticklabels(i.get_xticklabels(),rotation=90)
+
+#%%
+ax = sns.boxplot(data=raw_df[raw_df["variable"]=="appCat.builtin"], x="id", y="value")
+ax.set_xticklabels(ax.get_xticklabels(),rotation=80)
+
+# Initialize the figure
+f, ax1 = plt.subplots()
+
+# Show each observation with a scatterplot
+ax1 = sns.lineplot(x="id", y="value", data=raw_df[raw_df["variable"]=="appCat.builtin"])
+ax1.set_xticklabels(ax1.get_xticklabels(),rotation=90)
+
+#%%
+
+df
+
+# sns.set_theme(style="whitegrid")
+# sns.lineplot(data=raw_df[raw_df["variable"]=="activity"], palette="tab10", linewidth=2.5)
+
+#%%
+transpose = df.T
+
+transpose.plot.box()
 
 #trying to create plots of the activites and the individuals 
-df.boxplot(rot = 90)
+
 
 
 
