@@ -29,19 +29,13 @@ met lege waarden kijken wanneer ze zijn gerapporteerd. begin, eind of tussendoor
 - [*] write func that sums call and sms data per hour/day
 - [*] write func that sums/means of the appcat data
 - [ ] decide on what to do with the screen time
-- [ ] which statistics for general statistics?
-- [ ] look for outliers 
-- [ ] look for errors
-- [ ] proces NA vqalues for circumplex.valence
-- [ ] look for missing values
-- [ ] Data reduction!!!
-- [ ]: decide on which variable we should apply what to do with these "structural inconsistencies"
-- [ ]: determine which of these values are redundant aka analyse single variables piece by piece
-- [ ]: Check for nan/corrupt values
-- [ ]: Do some literature researche to which aggregation methods to use for which variables
+
 
 # infrequent used apps:
 finance, weather and game
 
 check the ratio of app usage for only user that have the specific low usage app
 -> not significant -> discardable
+
+## note on infrequent apps
+we set them to zero for all users without

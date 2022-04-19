@@ -2,6 +2,8 @@
 # Every thingh is going to be inside this 
 # %% 
 # imports
+from telnetlib import SE
+from turtle import xcor
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -42,33 +44,6 @@ display(id_var_df.head())
 #%%
 id_var_df.reset_index().drop(columns=['id']).groupby(by=["variable"]).agg(["count", "mean", "std", "min", "max"])["value"]
 
-#%%
-# %% 
-# # Split the time into day and timestamp
-# This might be USELESS
-dates_df = raw_df
-dates_df["date"] = raw_df["time"].apply(lambda x: x.date())
-dates_df["year"] = raw_df["time"].apply(lambda x: x.year)
-dates_df["month"] = raw_df["time"].apply(lambda x: x.month)
-dates_df["hour"] = raw_df["time"].apply(lambda x: x.time().strftime('%H:%M:%S'))
-
-# display(raw_df.head())
-
-print(f" number of years: {dates_df.year.drop_duplicates()}") # All data is form 2014
-print(f" number of months: \n {dates_df.month.drop_duplicates()}") # Only 5 months in dataset and highly skewed across months! #TODO: Discuss and eliminate data
-sum_months = 1+8+61+204+3854  # this is not the total amount of data points... #TODO: Find out how this data is aggregated so we can verify the number
-fract_june = 3854 / sum_months
-print(f"{fract_june*100:.2f}% of the data is from june")
-
-#%%
-ax = sns.lineplot(data=dates_df[dates_df["variable"]=="mood"], x="hour", y="value", hue="id")
-# sns.relplot(data=dates_df, x="hour", y="value", hue="id", col="variable", kind="line")
-# ax.set_xticklabels(rotation = 30)
-ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
-labels = ax.get_xticklabels()
-plt.setp(labels, rotation=45)
-ax.grid(True)
-plt.title("mood")
 
 # %%
 # Checking wether there are duplicate values per timeframe 
@@ -86,8 +61,7 @@ circ_avg_df= circ_avg_df.rename(columns={"time":"date"})
 # %%
 # raw_df[raw_df["value"]=="mood"]
 circ_df[(circ_df["value"] != -2) & (circ_df["value"] != -1) & (circ_df["value"] != 0) & (circ_df["value"] != 1) & (circ_df["value"] != 2) ]
-# %%
-circ_df[pd.isnull(circ_df["value"])] #TODO: Ask TA what to do with these and fix
+
 #%%
 circ_df
 # TODO: Make a choise what to do with circumplex data. same issue as with activity -> not every hour, lot of missing values
@@ -152,7 +126,7 @@ sns.catplot(data=appcat_avg_df[["id","day", "variable","value"]], x="day", y="va
 # ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
 # plt.title("time per app")
 #%%
-# TODO: Log values give error for zero now! #FIXME
+# TODO: Check with TA if the log(x+1) solution is valid
 sns.set_theme(style="ticks", palette="tab10")
 appcat_avg_df["log(value)"] = np.log(appcat_avg_df["value"]+1)
 appcat_log_df = appcat_avg_df
@@ -187,7 +161,7 @@ raw_df[raw_df["variable"] == "activity"].sort_index() #.groupby(by=["id","date"]
 # %%
 # TODO: handle screentime properly
 raw_df[raw_df["variable"] == "screen"].sort_index() #.groupby(by=["id","date"]).count()
-screen_df = raw_df[raw_df["variable"] == "screen"]
+screen_df = raw_df[(raw_df["variable"] == "screen")|(raw_df["variable"]=="mood")]
 
 screen_avg_df = screen_df.set_index("time") \
     .groupby(by=["id","variable"])["value"] \
@@ -199,7 +173,7 @@ screen_avg_df
 # screen_avg_df["log(value)"] = np.log(screen_avg_df["value"])
 #TODO: Show thre boys and discuss if we want to log these values as well
 
-sns.boxenplot(data=screen_avg_df, x="id", y="log(value)")
+# sns.boxenplot(data=screen_avg_df, x="id", y="log(value)")
 # %%
 
 avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df])[["id","date","variable", "value"]])
@@ -224,15 +198,28 @@ display(train_df)
 
 # %%
 from sklearn.preprocessing import MinMaxScaler
+import os
+
+
+#%%
+
 
 scaler = MinMaxScaler(feature_range=(0,1))
 
 # 
 # This applies a scalar transform per id per column
 df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
+df_scaled = df_scaled.reset_index()
+df_scaled.to_csv("data/train_data_v1.csv")
 
+column_list = df_scaled.columns
+x_columns = column_list.to_list()
+x_columns.remove("mood")
 
+x_df = df_scaled[x_columns]
+y_df = df_scaled["mood"]
 
-# %%
-df_scaled
+print(y_df.to_numpy())
+# x_df = df_scaled.reset_index()column_list.d
+# ]
 # %%
