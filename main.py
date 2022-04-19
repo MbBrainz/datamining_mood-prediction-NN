@@ -179,7 +179,6 @@ mood_avg_df = mood_df.set_index("time") \
 mood_avg_df.groupby(level=0).fillna(method='ffill', limit=2)
 mood_avg_df= mood_avg_df.rename(columns={"time":"date"})
 
-
 mood_avg_df
 #%%
 # screen_avg_df["log(value)"] = np.log(screen_avg_df["value"])
@@ -221,11 +220,10 @@ test_shift_df = train_df.copy()
 # windowed_df.insert(0, "builtin(1)", train_df["builtin"].values)
 # # windowed_df.set_index(["builtin"],0)
 # windowed_df["mood(t+1)"] = train_df.groupby(level=0)['mood'].shift(-1).values
-
+# train_df = train_df.reset_index()
 moods = train_df.groupby(level=0)['mood'].shift(-1).values
 windowed_df = train_df.groupby(level=0).rolling(5).mean()
 windowed_df["mood"] = moods
-windowed_df.dropna()
 
 # display(train_df.groupby(level=0)['mood'].shift(-1))
 #%%
@@ -243,7 +241,7 @@ scaler = MinMaxScaler(feature_range=(0,1))
 # 
 # This applies a scalar transform per id per column
 df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
-df_scaled = df_scaled.reset_index()
+# df_scaled = df_scaled.reset_index()
 df_scaled
 
 #%%
