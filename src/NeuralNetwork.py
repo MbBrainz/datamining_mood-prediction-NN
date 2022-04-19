@@ -28,6 +28,7 @@ class NeuralNetwork(nn.Module):
             nn.Linear(100, 100),
             nn.ReLU(),
             nn.Linear(100, 1),
+            nn.Softmax(1) #just to get output size 1x1
         )
 
 
@@ -35,7 +36,6 @@ class NeuralNetwork(nn.Module):
         x = self.flatten(x)
         logits = self.linear_relu_stack(x)
         return logits
-
 
 # %%
 
@@ -53,9 +53,10 @@ for epoch in range(num_epochs):
         data = data.view(data.size(0), -1).to(device=DEVICE)
         targets = targets.unsqueeze(1).to(device=DEVICE) 
         
-        print(data.shape)
-        
+        # print(f"data input shape :{data.shape}")
         scores = model(data)
+        
+        # print(f"score predicted: {scores.shape}")
         loss = criterion(scores, targets)
         optimizer.zero_grad()
         
@@ -152,3 +153,4 @@ for epoch in range(num_epochs):
 #               (self.true_positives + self.true_negatives +
 #                self.false_positives + self.false_negatives))
         
+# %%

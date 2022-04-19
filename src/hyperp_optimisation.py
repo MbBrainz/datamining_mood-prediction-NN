@@ -24,7 +24,7 @@ print(f"Using {DEVICE} DEVICE")
 # possible optimizers"
 features = 16 # This is without circumplex
 in_features = features
-EPOCHS = 1
+EPOCHS = 100000
 BACHSIZE = 100
 N_TRAIN_EXAMPLES = 100
 N_TEST_EXAMPLES = 10
@@ -40,6 +40,7 @@ def define_model(trial):
         out_features = trial.suggest_int(f"n_units_l{i}", features, 128)
         layers.append(torch.nn.Linear(in_features, out_features))
         layers.append(torch.nn.ReLU())
+        
         in_features = out_features
     
     layers.append(torch.nn.Linear(in_features, features))
@@ -53,6 +54,7 @@ def objective(trial: optuna.Trial):
     optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
     mse_loss = nn.MSELoss()
+    # TODO: check R^2 method
     
     model = define_model(trial).to(DEVICE)
     train_loader, test_loader = get_dataset_V1(BACHSIZE)
@@ -60,7 +62,9 @@ def objective(trial: optuna.Trial):
     
     
     for epoch in range(EPOCHS):
-        model.train()
+        
+        # starts training for this EPOCH
+        model.train() #just sets the state of the object to training mode
         for batch_idx, (data, target) in enumerate(train_loader):
             if batch_idx * BACHSIZE >= N_TRAIN_EXAMPLES:
                 break
@@ -72,7 +76,9 @@ def objective(trial: optuna.Trial):
             loss = mse_loss(output, target)
             loss.backward()
             optimizer.step()
-            
+        
+        
+        # starts the evaluation mode of the model  for this epoch
         model.eval()
         correct = 0
         with torch.no_grad():

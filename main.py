@@ -2,13 +2,12 @@
 # Every thingh is going to be inside this 
 # %% 
 # imports
-from telnetlib import SE
-from turtle import xcor
 import pandas as pd
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
+
 DATAFILE = "data/dataset_mood_smartphone.csv"
 #%%
 
@@ -161,7 +160,7 @@ raw_df[raw_df["variable"] == "activity"].sort_index() #.groupby(by=["id","date"]
 # %%
 # TODO: handle screentime properly
 raw_df[raw_df["variable"] == "screen"].sort_index() #.groupby(by=["id","date"]).count()
-screen_df = raw_df[(raw_df["variable"] == "screen")|(raw_df["variable"]=="mood")]
+screen_df = raw_df[(raw_df["variable"] == "screen")]
 
 screen_avg_df = screen_df.set_index("time") \
     .groupby(by=["id","variable"])["value"] \
@@ -169,6 +168,19 @@ screen_avg_df = screen_df.set_index("time") \
 screen_avg_df= screen_avg_df.rename(columns={"time":"date"})
 screen_avg_df
 
+
+#%%
+mood_df = raw_df[raw_df["variable"] == "mood"]
+
+mood_avg_df = mood_df.set_index("time") \
+    .groupby(by=["id","variable"])["value"] \
+    .resample("1D").mean().reset_index()
+
+mood_avg_df.groupby(level=0).fillna(method='ffill', limit=2)
+mood_avg_df= mood_avg_df.rename(columns={"time":"date"})
+
+
+mood_avg_df
 #%%
 # screen_avg_df["log(value)"] = np.log(screen_avg_df["value"])
 #TODO: Show thre boys and discuss if we want to log these values as well
@@ -176,7 +188,7 @@ screen_avg_df
 # sns.boxenplot(data=screen_avg_df, x="id", y="log(value)")
 # %%
 
-avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df])[["id","date","variable", "value"]])
+avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df,mood_avg_df])[["id","date","variable", "value"]])
 avg_day_df
 
 # %%
@@ -193,8 +205,31 @@ raw_train_df[pd.isnull(raw_train_df["builtin"])]
 train_df = pd.DataFrame(raw_train_df[~pd.isnull(raw_train_df["builtin"])])
 
 # %%
+# very fancy way to put the mood column last :p
+train_df = train_df[[c for c in train_df if c not in ['mood']]+ ['mood']]
 train_df = train_df.fillna(0)
 display(train_df)
+
+#%%
+# Trying to set the mood of the next day to the row of the current day. 
+test_shift_df = train_df.copy()
+# need to remove last day per id because of the shift
+
+#%%
+# windowed_df = train_df.groupby(level=0).rolling(5).mean()
+# # windowed_df["mood"] = train_df["mood"].values
+# windowed_df.insert(0, "builtin(1)", train_df["builtin"].values)
+# # windowed_df.set_index(["builtin"],0)
+# windowed_df["mood(t+1)"] = train_df.groupby(level=0)['mood'].shift(-1).values
+
+moods = train_df.groupby(level=0)['mood'].shift(-1).values
+windowed_df = train_df.groupby(level=0).rolling(5).mean()
+windowed_df["mood"] = moods
+windowed_df.dropna()
+
+# display(train_df.groupby(level=0)['mood'].shift(-1))
+#%%
+na_df = windowed_df.dropna()
 
 # %%
 from sklearn.preprocessing import MinMaxScaler
@@ -209,6 +244,9 @@ scaler = MinMaxScaler(feature_range=(0,1))
 # This applies a scalar transform per id per column
 df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
 df_scaled = df_scaled.reset_index()
+df_scaled
+
+#%%
 df_scaled.to_csv("data/train_data_v1.csv")
 
 column_list = df_scaled.columns
