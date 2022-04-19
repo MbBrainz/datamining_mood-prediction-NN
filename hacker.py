@@ -3,8 +3,10 @@
 from curses import raw
 from email import header
 from os import stat
+from pickle import TRUE
 from pstats import Stats
 from re import X
+from sre_constants import GROUPREF
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -48,32 +50,8 @@ for i in arrayind:
     Individuals_list.append(j)
 
 #%%
-#creating a dataframe for the first entry
+#creating the list of variables
 
-vars_val1 = raw_df.loc[:,["id","variable","value"]]
-
-id1 = vars_val1[vars_val1["id"] == "AS14.01"]
-
-group1 = id1.groupby(by = ['variable']).agg('mean')
- 
-group1.reset_index().variable
-
-df = pd.DataFrame({'Variable': group1.reset_index().variable , 'Average User AS14.01': group1.reset_index().value})
-
-
-#%%
-
-for i in Individuals_list:
-  if i ==  "AS14.01":
-    print("skip this bugger AS14.01")
-  else:
-    id = vars_val1[vars_val1["id"] == i ]
-    group = id.groupby(by = ['variable']).agg('mean')
-    df[i] = group.reset_index().value
-  
-#%%
-import seaborn as sns
-#%%
 Variables = raw_df.loc[:,["variable"]]
 Vars = Variables.drop_duplicates(subset="variable", keep='first', inplace=False)
 Vars
@@ -92,15 +70,96 @@ for i in Variable_A:
 Vars_list
 
 #%%
+#creating a dataframe for the first entry
+
+vars_val1 = raw_df.loc[:,["id","variable","value"]]
+
+id1 = vars_val1[vars_val1["id"] == "AS14.01"]
+
+group1 = id1.groupby(by = ['variable']).agg('mean')
+print(group1)
+
+#%%
+#creating a dataframe for the average values
+df = pd.DataFrame({'Variable': group1.reset_index().variable , 'AS14.01': group1.reset_index().value})
+df
+
+#%%
+##############################
+group = raw_df.groupby(by = ["id","variable"]).mean().reset_index()
+groups = group[group["variable"] == "mood"]
+
+df2 = pd.DataFrame({'User': Individuals_list, 'mood': groups.reset_index().value})
+df2
+#%%
+for i in Vars_list:
+  if i ==  "mood":
+    print("skip mood")
+  else:
+    groupsloop= group[group["variable"] == i]
+    idlist = []
+    dlist = []
+    for j in groupsloop.reset_index().id:
+      idlist.append(j)
+
+    for k in Individuals_list:
+      if (k in idlist) == True:
+        id_val = groupsloop[groupsloop["id"] == k]
+        dlist.append(id_val.reset_index().value[0])
+      else:
+        dlist.append('')
+    df2["{}".format(i)] = dlist
+
+#%%
+df2
+#%%
+fig, axs = plt.subplots(ncols=3)
+sns.regplot(x='User', y='mood', data=df2, ax=axs[1])
+sns.regplot(x='User', y='circumplex.arousal	', data=df2, ax=axs[2])
+# sns.boxplot(x='education',y='wage', data=df_melt, ax=axs[2])
+
+#%%
+newd = df.set_index('Variable').transpose()
+newd["mood"]
+#%%
+sea = sns.FacetGrid(newd, col = "mood")
+
+sea.map(sns.regplot, "activity", "appCat.builtin	", color = ".3")
+
+newd
+plt.figure(figsize=(10,10))
+i = sns.regplot(x="Users", y="activity", data=newd)
+i.set_xticklabels(i.get_xticklabels(),rotation=85)
+# fig, axs = plt.subplots(ncols=3)
+# sns.regplot(x='value', y='wage', data=df_melt, ax=axs[0])
+# sns.regplot(x='value', y='wage', data=df_melt, ax=axs[1])
+# sns.boxplot(x='education',y='wage', data=df_melt, ax=axs[2])
 
 
+# sns.pairplot(newd)
+#%%
+##############################################################
 
+#%%
 vars_val = raw_df.loc[:,["id", "variable","value"]]
-sns.pairplot(vars_val)
+#%%
+#normalizing arousal data
+g = vars_val[vars_val["variable"] == "circumplex.arousal"]
+h = g['value'] + 2
+g["addition"] = h
 
-# mood = id1[id1["variable"] == "mood"]
+g["addition"]/h.sum()
 
-# mood
+g["nomralized"] = g["addition"]/h.sum()
+g
+#%%
+#normalizing valence data 
+i = vars_val[vars_val["variable"] == "circumplex.valence"]
+i.min()
+j = i["value"] + 2
+i["addition"] = j
+i["nomralized"] = i["addition"]/j.sum()
+i
 #%%
 
 #appCAT
@@ -129,82 +188,54 @@ utilities = vars_val[vars_val["variable"] == "appCat.utilities"]
 # weather
 weather = vars_val[vars_val["variable"] == "appCat.weather"]
 #%%
-
-dfpairs = pd.DataFrame({'mood': mood.value })
-
-
-
-# dfpairs['builtin'] = communication.value
-
-com = communication.value.to_list()
-
-dfpairs['builtin'] = communication.value.to_list()
-
-dfpairs
-
-#%%
-
-
-for i in Vars_list:
-
-  plt.figure(figsize=(10,5))
-  i = sns.lineplot(x="id", y="value", data=raw_df[raw_df["variable"]==i])
-  i.set_ylabel(i, fontsize = 15)
-  i.set_xticklabels(i.get_xticklabels(),rotation=90)
-
-#%%
-ax = sns.boxplot(data=raw_df[raw_df["variable"]=="appCat.builtin"], x="id", y="value")
-ax.set_xticklabels(ax.get_xticklabels(),rotation=80)
-
-# Initialize the figure
-f, ax1 = plt.subplots()
-
-# Show each observation with a scatterplot
-ax1 = sns.lineplot(x="id", y="value", data=raw_df[raw_df["variable"]=="appCat.builtin"])
-ax1.set_xticklabels(ax1.get_xticklabels(),rotation=90)
-
-#%%
-
-df
-
 # sns.set_theme(style="whitegrid")
 # sns.lineplot(data=raw_df[raw_df["variable"]=="activity"], palette="tab10", linewidth=2.5)
 
 #%%
-transpose = df.T
-
-transpose.plot.box()
-
-#trying to create plots of the activites and the individuals 
-
-
-
-
-
-# plt.scatter(x = Individuals_list, y = a)
-# one = df.iloc[0]
-
-# vals = []
-
-# for i in range(1,len(one)):
-#   vals.append(one[i])
-
-# plt.scatter(x = Individuals_list, y = vals)
-# plt.xticks(rotation = 75)
-
-#%%
+################################################################
 #Looking at the averages of the users per day 
 raw_df['Day'] = raw_df['time'].dt.day
+Days_list = list(range(1,32))
 
 day_vals = raw_df.loc[:,["Day","id","variable","value"]]
+day_vals.sort_values( by = "Day")
 
-day1 = day_vals[day_vals["id"] == "AS14.01"]
+d1 = day_vals[day_vals["Day"] == 1]
+d1
 
-day1_sorted = day1.sort_values(by= "Day")
+#%%
 
-day1_sorted.head()
+d11 = d1.groupby(by = ["id","variable"]).mean().reset_index()
+d111 = d11[d11["variable"] == 'mood']
 
-d1 = day1_sorted[day1_sorted["Day"] == 1]
+df_perday = pd.DataFrame({'User': Individuals_list, 'mood day1': d111.reset_index().value})
+
+#%%
+
+#%%
+
+for i in Vars_list:
+  for d in Days_list:
+    day_num = day_vals[day_vals["Day"] == d]
+    if d ==  1 and i == "mood":
+      print("skip day 1 mood1 ")
+    else:
+      day_num_l= day_num[day_num["variable"] == i]
+      idlist = []
+      dlist = []
+      for j in day_num_l.reset_index().id:
+        idlist.append(j)
+
+      for k in Individuals_list:
+        if (k in idlist) == True:
+          id_val = day_num_l[day_num_l["id"] == k]
+          dlist.append(id_val.reset_index().value[0])
+        else:
+          dlist.append('')
+      df_perday["{} Day {}".format(i, d)] = dlist
+
+#%%
+df_perday
 #%%
 #creating the data frame for the average usage of apps for all users
 
@@ -232,88 +263,7 @@ for i in Individuals_list:
     DFUser1["Average for day {} User {}".format(j,i)] = grouptoadd.reset_index().value
 
 DFUser1
-
-#%%
-#number of days used for the Users
-Dayscol = raw_df.loc[:,["Day"]]
-
-Days = Dayscol.drop_duplicates(subset="Day", keep='first', inplace=False)
-
-Days.sort_values(by = "Day")
-
-Days_list = list(range(1,32))
-
-# day1_sorted = day1.sort_values(by= "Day")
-
-# number_days = day1_sorted.Day
-
-# num_days = number_days.drop_duplicates(subset="Day", keep='first', inplace=False)
-
-# number_days
-
 #%%
 
-M = id1[id1["variable"] =='mood']
-M['value'].mean()
-# id1_var = id1.groupby(by=["id","variable"]).agg(["mean","count"])
-
-# id1_var.index[1:2]
-#%%
-
-# ids_ind = vars_val1.groupby(by = ["id", "variable"])
-
-# ids_ind.loc[:,1:10]
-
-#%%
-
-idsind = raw_df.groupby(by=[raw_df['id']])
-
-id1 = idsind[idsind['id'] == "AS14.01"]
-
-#%%
-
-id1 = raw_df.id['AS14.01']
-
-
-
-#%%
-
-idsind1 = raw_df.groupby(by=["id","variable"]).agg(["mean"])
-
-idsind1
-
-id1_var1 = id1.groupby(by=["id","variable"]).agg(["mean"])
-
-
-
-for i in range(len(id1_var)) :
-  print(id1_var.iloc[i, 0])
-
-#%%
-vars_val = raw_df.loc[:,["variable","value"]]
-mood = vars_val[vars_val["variable"] == "mood"]
-#appCAT
-#builtin
-builtin = vars_val[vars_val["variable"] == "appCat.builtin"]
-#communications 
-communication = vars_val[vars_val["variable"] == "appCat.communication"]
-#entertainment 
-entertainment = vars_val[vars_val["variable"] == "appCat.entertainment"]
-#finance
-finance = vars_val[vars_val["variable"] == "appCat.finance"]
-#game
-game = vars_val[vars_val["variable"] == "appCat.game"]
-#office
-office = vars_val[vars_val["variable"] == "appCat.office"]
-#office
-other = vars_val[vars_val["variable"] == "appCat.other"]
-#social
-social = vars_val[vars_val["variable"] == "appCat.social"]
-#travel
-travel = vars_val[vars_val["variable"] == "appCat.travel"]
-#unknown
-unknown = vars_val[vars_val["variable"] == "appCat.unknown"]
-#utilities
-utilities = vars_val[vars_val["variable"] == "appCat.utilities"]
-# weather
-weather = vars_val[vars_val["variable"] == "appCat.weather"]
+list(df_perday.columns)
+# %%
