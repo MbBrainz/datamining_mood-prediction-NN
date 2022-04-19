@@ -203,7 +203,6 @@ import os
 
 #%%
 
-
 scaler = MinMaxScaler(feature_range=(0,1))
 
 # 

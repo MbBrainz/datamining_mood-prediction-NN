@@ -2,109 +2,27 @@
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset, random_split
-import numpy as np
 import pandas as pd
+import numpy as np
+import optuna
 
-
-#%%
-
-class MyDataset(Dataset):
-    
-    def __init__(self,file_name , train=True,):
-        train_df=pd.read_csv(file_name)
-        target = "mood"
-        column_list = train_df.columns.tolist()
-        column_list.remove(target)
-        column_list.remove("id")
-        column_list.remove("date")
-
-        x=train_df[column_list].values
-        y=train_df[target].values
-        
-        self.input_size = len(column_list)
-
-        self.x_train=torch.tensor(x,dtype=torch.float32)
-        self.y_train=torch.tensor(y,dtype=torch.float32)
-        
-
-    def __len__(self):
-        return len(self.y_train)
-    
-    def __getitem__(self,idx):
-        return self.x_train[idx],self.y_train[idx]
-
-def get_dataset(batch_size):
-    dataset = MyDataset("../data/train_data_v1.csv")
-    trainset, testset = random_split(dataset, lengths=[round(0.7*len(dataset)),round(0.3*len(dataset))], generator=torch.Generator().manual_seed(155))
-    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=True)
-    return train_loader, test_loader
-
-
+from MoodDataset import get_dataset_V1, MoodDatasetV1
+# %% [markdown]
+# ## Hyper parameter optimisation
+# In the cells below we test a set of hyper parameters (where you see `trial.suggest_...`) and we find the optimal value to fully train the model with
+# 
+# The package optuna is light weight and helps us test multiple parameters.
+# 
+# 
+# #
 # %%
-
-
-
-#%%
+# ------------------- NN (NON-TEMPORAL) ----------------------
+# optimizing hyperparameters using optuna https://optuna.org/#code_examples 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {DEVICE} DEVICE")
 
-class NeuralNetwork(nn.Module):
-    def __init__(self, input_size):
-        super(NeuralNetwork, self).__init__()
-        self.flatten = nn.Flatten()
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_size, 100),
-            nn.ReLU(),
-            nn.Linear(100,100),
-            nn.ReLU(),
-            nn.Linear(100, 100),
-            nn.ReLU(),
-            nn.Linear(100, 1),
-        )
-
-
-    def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
-
-
-
-
-
-# %%
-criterion = nn.MSELoss()
-train_loader, test_loader = get_dataset(10)
-model = NeuralNetwork(input_size=16).to(DEVICE)
-optimizer = optim.SGD(model.parameters(), lr=0.0001)
-
-num_epochs = 1
-for epoch in range(num_epochs):
-    for batch_idx, (data, targets) in enumerate(train_loader):
-        data = data.view(data.size(0), -1).to(device=DEVICE)
-        targets = targets.to(device=DEVICE)
-        
-        print(data.shape)
-        
-        scores = model(data)
-        loss = criterion(scores, targets)
-        optimizer.zero_grad()
-        
-        loss.backward()
-        optimizer.step()
-        print(f"[Epoch{epoch} batch{batch_idx}] loss = {loss}")
-        
-
-
-        
-# %%
-# optimizing hyperparameters using optuna https://optuna.org/#code_examples 
-import optuna
-
-
 # possible optimizers"
-features = 16
+features = 16 # This is without circumplex
 in_features = features
 EPOCHS = 1
 BACHSIZE = 100
@@ -118,6 +36,7 @@ def define_model(trial):
     layers = []
     for i in range(n_layers):
         # HP: optimize number of neurons per layer
+        # TODO: discuss network layer design
         out_features = trial.suggest_int(f"n_units_l{i}", features, 128)
         layers.append(torch.nn.Linear(in_features, out_features))
         layers.append(torch.nn.ReLU())
@@ -128,38 +47,37 @@ def define_model(trial):
     
     return nn.Sequential(*layers)
     
-
+# This function describes how optuna will test the model
 def objective(trial: optuna.Trial):
-    ### Our code
     ## hyperparameters outside model
     optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+    mse_loss = nn.MSELoss()
     
     model = define_model(trial).to(DEVICE)
-    train_loader, test_loader = get_dataset(BACHSIZE)
+    train_loader, test_loader = get_dataset_V1(BACHSIZE)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     
     
     for epoch in range(EPOCHS):
         model.train()
         for batch_idx, (data, target) in enumerate(train_loader):
-            # if batch_idx * BACHSIZE >= N_TRAIN_EXAMPLES:
-            #     break
-                
-            data, target = data.to(DEVICE), target.to(DEVICE)
+            if batch_idx * BACHSIZE >= N_TRAIN_EXAMPLES:
+                break
             
+            data, target = data.to(DEVICE), target.unsqueeze(1).to(DEVICE)
     
             optimizer.zero_grad()
             output = model(data)
-            loss = nn.MSELoss(output, target)
+            loss = mse_loss(output, target)
             loss.backward()
             optimizer.step()
             
         model.eval()
         correct = 0
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(train_loader):
-                # Limiting validation data.
+            for batch_idx, (data, target) in enumerate(test_loader):
+                # # Limiting validation data.
                 if batch_idx * BACHSIZE >= N_TEST_EXAMPLES:
                     break
                 data, target = data.to(DEVICE), target.to(DEVICE)
@@ -203,3 +121,5 @@ for key, value in trial.params.items():
 # %%
 
 # %%
+# ------------------- Temporal NN (RNN or LSTM) ----------------------
+# TODO: implement
