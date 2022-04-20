@@ -186,6 +186,46 @@ mood_avg_df.groupby(level=0).fillna(method='ffill', limit=2)
 mood_avg_df= mood_avg_df.rename(columns={"time":"date"})
 
 mood_avg_df
+
+#%%
+#arousal data
+arousal_df = raw_df[raw_df["variable"] == "circumplex.arousal"]
+arousal_df["value"] =  arousal_df["value"] + 2
+
+
+
+arousal_avg_df = arousal_df.set_index("time")\
+    .groupby(by=["id","variable"])["value"] \
+    .resample("1D").mean().reset_index()
+
+
+arousal_avg_df['value'] = arousal_avg_df['value'].fillna(method='ffill', limit=2)
+
+arousal_avg_df['value'] = arousal_avg_df['value'].replace(np.nan, 2)
+arousal_avg_df= arousal_avg_df.rename(columns={"time":"date"})
+
+arousal_avg_df
+
+#%%
+#valence data 
+V_df = raw_df[raw_df["variable"] == "circumplex.valence"]
+V_df["value"] = V_df["value"] + 2
+
+
+
+V_avg_df = V_df.set_index("time")\
+    .groupby(by=["id","variable"])["value"] \
+    .resample("1D").mean().reset_index()
+
+V_avg_df
+
+V_avg_df['value'] = V_avg_df['value'].fillna(method='ffill', limit=2)
+
+V_avg_df['value'] = V_avg_df['value'].replace(np.nan, 2)
+V_avg_df= V_avg_df.rename(columns={"time":"date"})
+
+V_avg_df
+
 #%%
 # screen_avg_df["log(value)"] = np.log(screen_avg_df["value"])
 #TODO: Show thre boys and discuss if we want to log these values as well
@@ -193,7 +233,7 @@ mood_avg_df
 # sns.boxenplot(data=screen_avg_df, x="id", y="log(value)")
 # %%
 
-avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df,mood_avg_df])[["id","date","variable", "value"]])
+avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df,mood_avg_df, arousal_avg_df, V_avg_df ])[["id","date","variable", "value"]])
 avg_day_df
 
 # %%
@@ -263,4 +303,5 @@ y_df = df_scaled["mood"]
 print(y_df.to_numpy())
 # x_df = df_scaled.reset_index()column_list.d
 # ]
+# %%
 # %%
