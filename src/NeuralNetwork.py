@@ -9,6 +9,7 @@ It still needs:
 
 #%%
 import os
+from statistics import mean
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -48,11 +49,13 @@ print(f"Using {DEVICE} DEVICE")
 
 criterion = nn.MSELoss()
 train_loader, test_loader = get_dataset_V1(100, 2)
-model = NeuralNetwork(input_size=15, layer_size=50).to(DEVICE)
+model = NeuralNetwork(input_size=17, layer_size=50).to(DEVICE)
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
-num_epochs = 10000
+num_epochs = 2000
 for epoch in range(num_epochs):
+    losses = []
+
     for batch_idx, (data, targets) in enumerate(train_loader):
         data = data.view(data.size(0), -1).to(device=DEVICE)
         targets = targets.unsqueeze(1).to(device=DEVICE) 
@@ -62,15 +65,40 @@ for epoch in range(num_epochs):
         # forward
         scores = model(data)
         loss = criterion(scores, targets)
-        # model.error_list.append(loss.detach().numpy())
-        
+        losses.append(loss.detach().numpy())
         #bachward
         optimizer.zero_grad()
         loss.backward()
         
         optimizer.step()
         print(f"[Epoch{epoch} batch{batch_idx}] loss = {loss}")
+    model.error_list.append(np.mean(losses))
         
+#%%
+
+plt.plot(model.error_list)
+plt.ylim(0,0.1)
+plt.xlim(0,200)
+#%%
+for data,label in test_loader:
+    print(data)
+#%%
+is_gpu = torch.cuda.is_available()
+test_loss = 0.0
+correct, total = 0,0
+
+for data,label in test_loader:
+    if is_gpu:
+        data, label = data.cuda(), label.cuda()
+    output = model(data)
+    for o,l in zip(torch.argmax(output,axis = 1),label):
+        if o == l:
+            correct += 1
+        total += 1
+    loss = criterion(output,label)
+    test_loss += loss.item() * data.size(0)
+print(f'Testing Loss:{test_loss/len(test_loader)}')
+print(f'Correct Predictions: {correct}/{total}')
         
 #%%        
 # check accuracy
