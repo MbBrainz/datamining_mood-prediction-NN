@@ -231,12 +231,12 @@ for i in Vars_list:
           id_val = day_num_l[day_num_l["id"] == k]
           dlist.append(id_val.reset_index().value[0])
         else:
-          dlist.append('')
+          dlist.append(0)
       df_perday["{} Day {}".format(i, d)] = dlist
 
 #%%
 df_perday
-#%%
+ #%%
 #creating the data frame for the average usage of apps for all users
 
 Dayscol = raw_df.loc[:,["Day"]]
