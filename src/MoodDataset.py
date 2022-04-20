@@ -35,7 +35,7 @@ class MoodDatasetV1(Dataset):
         self.y_train=torch.tensor(y,dtype=torch.float32)
         
     def aggr_over_days(self, n_days=1) -> pd.DataFrame:
-        moods = self.train_df.groupby(level=0)['mood'].shift(-1).values
+        moods = self.train_df["mood"].values
         windowed_df = self.train_df.groupby(level=0).rolling(n_days).mean()
         windowed_df["mood"] = moods
         windowed_df = windowed_df.dropna()
@@ -62,3 +62,4 @@ dataset.train_df
 
 # %%
 # TODO: check the values of mood when daywindow=1
+# %%
