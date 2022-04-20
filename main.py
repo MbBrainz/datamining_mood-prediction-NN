@@ -2,6 +2,7 @@
 # Every thingh is going to be inside this 
 # %% 
 # imports
+from pickletools import read_bytes1
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -75,12 +76,17 @@ circ_df
 # group by data types
 # %%
 # AppCat
-appcat_df = raw_df.query('variable.str.startswith("appCat.")')
+
+# appcat_list = raw_df[]
+
+appcat_list = [x for x in raw_df["variable"].drop_duplicates().tolist() if x.startswith("appCat.")]
+appcat_df = raw_df[raw_df["variable"].isin(appcat_list)]
+# appcat_df = raw_df.query(variable.str.startswith("appCat."))
 appcat_df["variable"] = appcat_df["variable"].apply(lambda x: x.removeprefix("appCat."))
 
-apcat_list = appcat_df.variable.drop_duplicates().values
-print(apcat_list)
+print(appcat_list)
 
+appcat_df
 # %% [markdown]
 # # Negative Outliers
 # This appcat dataset has 4 neative outliers. those are shown and filtered from raw_df in the next cell
