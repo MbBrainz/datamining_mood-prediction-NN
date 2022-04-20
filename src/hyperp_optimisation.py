@@ -22,12 +22,12 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {DEVICE} DEVICE")
 
 # possible optimizers"
-features = 16 # This is without circumplex
+features = 15 # This is without circumplex
 in_features = features
-EPOCHS = 100000
+EPOCHS = 10000
 BACHSIZE = 100
-N_TRAIN_EXAMPLES = 100
-N_TEST_EXAMPLES = 10
+N_TRAIN_EXAMPLES = 100 * 3
+N_TEST_EXAMPLES = 10 * 3
 
 def define_model(trial):
     n_layers =  trial.suggest_int("n_layers", 1, 10)
@@ -37,9 +37,11 @@ def define_model(trial):
     for i in range(n_layers):
         # HP: optimize number of neurons per layer
         # TODO: discuss network layer design
-        out_features = trial.suggest_int(f"n_units_l{i}", features, 128)
+        out_features = trial.suggest_int(f"n_units_l{i}", 8, 128)
         layers.append(torch.nn.Linear(in_features, out_features))
         layers.append(torch.nn.ReLU())
+        p = trial.suggest_float("dropout_l{}".format(i), 0.2, 0.5)
+        layers.append(nn.Dropout(p))
         
         in_features = out_features
     
