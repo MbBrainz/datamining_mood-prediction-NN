@@ -95,85 +95,135 @@ class GRUModel(nn.Module):
 #%%
     
     
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using {DEVICE} DEVICE")
+# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# print(f"Using {DEVICE} DEVICE")
 
-criterion = nn.MSELoss()
-# train_loader, test_loader = get_dataset_timesensitive(100, 1)
-model = GRUModel(input_dim=15, hidden_dim=10, layer_dim=30, output_dim=1, dropout_prob=0.35).to(DEVICE)
-optimizer = optim.SGD(model.parameters(), lr=1.73E-5)
+# criterion = nn.MSELoss()
+# # train_loader, test_loader = get_dataset_timesensitive(100, 1)
+# input_dim = 18
+# model = GRUModel(input_dim, hidden_dim=10, layer_dim=30, output_dim=1, dropout_prob=0.35).to(DEVICE)
+# optimizer = optim.SGD(model.parameters(), lr=1.73E-5)
 
-train_df=pd.read_csv("../data/train_data_v1.csv", index_col=[0,1])
-train_df["mood+1"] = train_df.groupby(level=0)['mood'].shift(-1).values
+# train_df=pd.read_csv("../data/train_data_v1.csv", index_col=[0,1])
+# train_df["mood(t+1)"] = train_df.groupby(level=0)['mood'].shift(-1).values
 
-train_df = aggr_over_days(train_df, 1).droplevel(0)
-display(train_df)
+# train_df = aggr_over_days(train_df, 1).droplevel(0)
+# display(train_df)
 
-column_list = train_df.columns.tolist()
-column_list.remove("mood")
-column_list.remove("mood+1")
+# column_list = train_df.columns.tolist()
+# column_list.remove("mood")
+# column_list.remove("mood(t+1)")
+# print(column_list)
+# ids = train_df.index.get_level_values(0).drop_duplicates()
+# test_ids = ids[23:]
+# ids = ids[:23]
+# ids
 
-ids = train_df.index.get_level_values(0)
-test_ids = ids[23:]
-ids = ids[:23]
-
-# %%
-num_epochs = 1000
-for epoch in range(num_epochs):
-    # for batch_idx, (data, targets) in enumerate(train_loader):
-    losses_per_epoch = []
-    for id in ids:
-        id_df = train_df.filter(regex=id,axis=0)
-        xdata = id_df[column_list].values
-        ydata = id_df["mood"]
+# # %%
+# timesteps = 4
+# num_epochs = 1000
+# for epoch in range(num_epochs):
+#     # for batch_idx, (data, targets) in enumerate(train_loader):
+#     losses_per_epoch = []
+#     for id in ids:
+#         print(id)
+#         xdata, ydata = get_epoch_data(train_df,column_list,id, timesteps)
         
-        data = torch.tensor(xdata, dtype=torch.float).view([ydata.shape[0], -1, 15]).to(DEVICE)
-        targets = torch.tensor(ydata, dtype=torch.float).unsqueeze(1).to(DEVICE)
-        # forward
-        scores = model(data)
-        loss = criterion(scores, targets)
+#         # id_df = train_df.filter(regex=id,axis=0)
+#         # xdata = id_df[column_list].values
+#         # ydata = id_df["mood(t+1)"]
         
-        # model.error_list.append(loss.detach().numpy())
-        losses_per_epoch.append(loss.detach().numpy())
+#         data = torch.tensor(xdata, dtype=torch.float).view([ydata.shape[0], -1, input_dim]).to(DEVICE)
+#         print(data.shape)
+#         targets = torch.tensor(ydata, dtype=torch.float).unsqueeze(1).to(DEVICE)
+#         # forward
+#         scores = model(data)
+#         loss = criterion(scores, targets)
         
-        #bachward
-        optimizer.zero_grad()
-        loss.backward()
+#         # model.error_list.append(loss.detach().numpy())
+#         losses_per_epoch.append(loss.detach().numpy())
         
-        optimizer.step()
-    print(f"[Epoch{epoch} loss = {np.mean(losses_per_epoch):.4}")
+#         #bachward
+#         optimizer.zero_grad()
+#         loss.backward()
         
-    model.error_list.append(np.mean(losses_per_epoch))
-#%%
-fig, ax = plt.subplots()
-ax.plot(range(len(model.error_list)), model.error_list)
-ax.set(xlabel="epoch", ylabel="mse")
-# %%
-# randomized data: GRU shoud not perform good here
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using {DEVICE} DEVICE")
+#         optimizer.step()
+#     print(f"[Epoch{epoch} loss = {np.mean(losses_per_epoch):.4f}")
+        
+#     model.error_list.append(np.mean(losses_per_epoch))
+    
+# #%%    
 
-criterion = nn.MSELoss()
-train_loader, test_loader = get_dataset_V1(100, 1)
-model = GRUModel(input_dim=15, hidden_dim=10, layer_dim=30, output_dim=1, dropout_prob=0.35).to(DEVICE)
-optimizer = optim.SGD(model.parameters(), lr=1.73E-5)
 
-num_epochs = 10000
-for epoch in range(num_epochs):
-    for batch_idx, (data, targets) in enumerate(train_loader):
-        # print(data.shape)
-        data = data.view([data.size(0), -1, 15]).to(device=DEVICE)
-        targets = targets.unsqueeze(1).to(device=DEVICE) 
 
-        # print(f"score predicted: {scores.shape}")
-        # forward
-        scores = model(data)
-        loss = criterion(scores, targets)
-        # model.error_list.append(loss.detach().numpy())
+# def get_epoch_data(train_df, column_list, timesteps, id):
+#     id_df = train_df.filter(regex=id, axis=0)
+#     xdata = id_df[column_list].values
+
+#     ydata = id_df["mood(t+1)"].values
+#     xdata_temp = []
+#     ydata_temp = []
+#     for i in range(len(xdata)-timesteps):
+#         data_i = xdata[i:i+timesteps]
+#         target_i = ydata[i+timesteps]
+#         xdata_temp.append(np.array(data_i))
+#         ydata_temp.append(target_i)
+#     return np.array(xdata_temp), np.array(ydata_temp)
+
+# def get_total_data(train_df, column_list, timesteps, get_epoch_data):
+#     ids = train_df.index.get_level_values(0)
+#     total_datax = []
+#     total_datay = []
+#     for id in ids:
+#         datax, datay = get_epoch_data(train_df, column_list, timesteps, id)
+#         total_datax.append(datax)
+#         total_datay.append(datay)
+
+#     total_datax = np.concatenate(total_datax)
+#     total_datay = np.concatenate(total_datay)
+#     return total_datax, total_datay
+
+# total_datax, total_datay = get_total_data(train_df, column_list, timesteps, get_epoch_data)
+
+# np.shape(total_datax)
+# # np.shape(total_datay)
+
+# # get_epoch_data(train_df, column_list, timesteps, id)
+# # xdata
+
+
+
         
-        #bachward
-        optimizer.zero_grad()
-        loss.backward()
+# #%%
+# fig, ax = plt.subplots()
+# ax.plot(range(len(model.error_list)), model.error_list)
+# ax.set(xlabel="epoch", ylabel="mse")
+# # %%
+# # randomized data: GRU shoud not perform good here
+# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# print(f"Using {DEVICE} DEVICE")
+
+# criterion = nn.MSELoss()
+# train_loader, test_loader = get_dataset_V1(100, 1)
+# model = GRUModel(input_dim=15, hidden_dim=10, layer_dim=30, output_dim=1, dropout_prob=0.35).to(DEVICE)
+# optimizer = optim.SGD(model.parameters(), lr=1.73E-5)
+
+# num_epochs = 10000
+# for epoch in range(num_epochs):
+#     for batch_idx, (data, targets) in enumerate(train_loader):
+#         # print(data.shape)
+#         data = data.view([data.size(0), -1, 15]).to(device=DEVICE)
+#         targets = targets.unsqueeze(1).to(device=DEVICE) 
+
+#         # print(f"score predicted: {scores.shape}")
+#         # forward
+#         scores = model(data)
+#         loss = criterion(scores, targets)
+#         # model.error_list.append(loss.detach().numpy())
         
-        optimizer.step()
-    print(f"[Epoch{epoch} batch{batch_idx}] loss = {loss:.4}")
+#         #bachward
+#         optimizer.zero_grad()
+#         loss.backward()
+        
+#         optimizer.step()
+#     print(f"[Epoch{epoch} batch{batch_idx}] loss = {loss:.4}")

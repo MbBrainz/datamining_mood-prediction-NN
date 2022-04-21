@@ -13,10 +13,14 @@ from statistics import mean
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-from MoodDataset import get_dataset_V1
+from MoodDataset import get_dataset_V1, get_dataset_tvt
+
 
 class NeuralNetwork(nn.Module):
     def __init__(self, input_size, layer_size, nlayers, dropout):
@@ -44,49 +48,97 @@ class NeuralNetwork(nn.Module):
         x = self.flatten(x)
         logits = self.linear_relu_stack(x)
         return logits
+    
+def train_one_epoch(model, training_loader, epoch_index, loss_fn, tb_writer):
+    running_loss = 0.
+    last_loss = 0.
+
+    # Here, we use enumerate(training_loader) instead of
+    # iter(training_loader) so that we can track the batch
+    # index and do some intra-epoch reporting
+    for i, (data, targets) in enumerate(training_loader):
+        # Every data instance is an input + label pair
+        inputs = data.view(data.size(0), -1).to(device=DEVICE)
+        targets = targets.unsqueeze(1).to(device=DEVICE) 
+
+        # Zero your gradients for every batch!
+        optimizer.zero_grad()
+
+        # Make predictions for this batch
+        outputs = model(inputs)
+
+        # Compute the loss and its gradients
+        loss = loss_fn(outputs, targets)
+        loss.backward()
+
+        # Adjust learning weights
+        optimizer.step()
+
+        # Gather data and report
+        running_loss += loss.item()
+        if i % 10 == 9:
+            last_loss = running_loss / 10 # loss per batch
+            print('  batch {} loss: {}'.format(i + 1, last_loss))
+            tb_x = epoch_index * len(training_loader) + i + 1
+            tb_writer.add_scalar('Loss/train', last_loss, tb_x)
+            running_loss = 0.
+
+    return running_loss/(i+1)
 
 # %%
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using {DEVICE} DEVICE")
 
-criterion = nn.MSELoss()
-train_loader, test_loader = get_dataset_V1(100, 2)
-model = NeuralNetwork(input_size=19, nlayers=17, layer_size=50, dropout=0.35).to(DEVICE)
-optimizer = optim.SGD(model.parameters(), lr=0.001)
-best_vloss = 1_000_000.
+loss_function = nn.MSELoss()
+train_loader, val_loader, test_loader = get_dataset_tvt(100, 7)
+model = NeuralNetwork(input_size=19, nlayers=4, layer_size=72, dropout=0.42).to(DEVICE)
+optimizer = optim.Adam(model.parameters(), lr=0.0000128)
 
-num_epochs = 2000
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+writer = SummaryWriter('runs/fashion_trainer_{}'.format(timestamp))
+
+
+best_vloss = 1_000_000.
+num_epochs = 10000
 for epoch in range(num_epochs):
     losses = []
+    
+    model.train(True)
+    avg_loss = train_one_epoch(model, training_loader=train_loader, epoch_index=epoch, loss_fn=loss_function, tb_writer=writer)
+    
+    model.train(False)
+    running_vloss = 0
+    
+    for i, (vdata, vtargets) in enumerate(val_loader):
+        vinputs = vdata.view(vdata.size(0), -1).to(device=DEVICE)
+        vtargets = vtargets.unsqueeze(1).to(device=DEVICE) 
+        voutputs = model(vinputs)
+        vloss = loss_function(voutputs, vtargets)
+        running_vloss += vloss
+        
+    avg_vloss = running_vloss / (i + 1)
+    
+    writer.add_scalars('Training vs. Validation Loss',
+                    { 'Training' : avg_loss, 'Validation' : avg_vloss },
+                    epoch + 1)
+    writer.flush()
+    
+    if avg_vloss < best_vloss:
+        best_vloss = avg_vloss
+        model_path = 'trainingdata/model_{}_{}'.format(timestamp, epoch)
+        torch.save(model.state_dict(), model_path)
+        
+    
+#%%
+# load best performing model
+trainingdata = ["trainingdata/"+ str(x) for x in sorted(os.listdir( 'trainingdata/'))]
+saved_model = NeuralNetwork(input_size=19, nlayers=4, layer_size=73, dropout=0.42)
+saved_model.load_state_dict(torch.load( trainingdata[-1] ))
 
-    for batch_idx, (data, targets) in enumerate(train_loader):
-        data = data.view(data.size(0), -1).to(device=DEVICE)
-        targets = targets.unsqueeze(1).to(device=DEVICE) 
-
-        
-        # print(f"score predicted: {scores.shape}")
-        # forward
-        scores = model(data)
-        loss = criterion(scores, targets)
-        losses.append(loss.detach().numpy())
-        #bachward
-        optimizer.zero_grad()
-        loss.backward()
-        
-        optimizer.step()
-        print(f"[Epoch{epoch} batch{batch_idx}] loss = {loss}")
-        
-    model.error_list.append(np.mean(losses))
-        
 #%%
 
-plt.plot(model.error_list)
-plt.ylim(0,0.1)
-plt.xlim(0,200)
-#%%
-for data,label in test_loader:
-    print(data)
+        
 #%%
 is_gpu = torch.cuda.is_available()
 test_loss = 0.0
@@ -100,7 +152,7 @@ for data,label in test_loader:
         if o == l:
             correct += 1
         total += 1
-    loss = criterion(output,label)
+    loss = loss_function(output,label)
     test_loss += loss.item() * data.size(0)
 print(f'Testing Loss:{test_loss/len(test_loader)}')
 print(f'Correct Predictions: {correct}/{total}')

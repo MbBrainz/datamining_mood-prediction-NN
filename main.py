@@ -204,9 +204,6 @@ for u in NANusers:
 # remove_idxs
 mood_avg_df = mood_avg_df.drop(remove_idxs)
 
-# mood_avg_df.index
-
-# mood_avg_df
 
 
 
@@ -259,6 +256,8 @@ scaler = MinMaxScaler(feature_range=(0,1))
 
 # This applies a scalar transform per id per column
 df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
+# df_scaled = train_df.reset_index(drop=True).apply(lambda x : pd.DataFrame(scaler.fit_transform(x.reshape(1,-1)), columns=x.columns, index=x.index).round(5))
+# df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
 df_scaled
 
 #%%
