@@ -184,14 +184,29 @@ screen_avg_df
 #%% 
 mood_df = raw_df[raw_df["variable"] == "mood"]
 
-mood_avg_df = mood_df.set_index("time") \
+mood_avg_df = pd.DataFrame(mood_df.set_index("time") \
     .groupby(by=["id","variable"])["value"] \
-    .resample("1D").mean().reset_index()
+    .resample("1D").mean())
 
-mood_avg_df.groupby(level=0).fillna(method='ffill', limit=2)
-mood_avg_df= mood_avg_df.rename(columns={"time":"date"})
+mood_avg_df = mood_avg_df.fillna(method='ffill', limit=2).reset_index()
+mood_avg_df = mood_avg_df.rename(columns={"time":"date"})
 
-mood_avg_df
+# ---------[<user-id>, <index of first non-nan>, <remove rows>]
+NANuser1 = ["AS14.01", 23, 23]
+NANuser2 = ["AS14.12", 424, 12]
+NANuser3 = ["AS14.17", 691, 17]
+NANusers= [NANuser1, NANuser2, NANuser3]
+remove_idxs = []
+for u in NANusers:
+    idxs = np.arange(u[1]-u[2], u[1])
+    remove_idxs += list(idxs)
+
+# remove_idxs
+mood_avg_df = mood_avg_df.drop(remove_idxs)
+
+# mood_avg_df.index
+
+# mood_avg_df
 
 
 
@@ -218,14 +233,18 @@ avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df, appcat_log_df, screen_avg_d
 # creating columns from all variables 
 raw_train_df = avg_day_df.pivot(index=["id","date"],columns=["variable"], values=["value"])["value"]
 raw_train_df
+# IMPORTANT: after the pivot step here, there are some NAN values at mood. These values are all in the beginning or 
+#               the end of a period of a user, therefore we can safely discard those values
 
 # %%
 # # checking if my assumption is correct:
 # # all the values are in the beginning of the dataset and if the builtin is zero, then all the other appcat values are also zero.
 # raw_train_df[pd.isnull(raw_train_df["builtin"])]
 
-# removing rows which have builtin = NAN -> there is no phone data available for those days, only in the beginning
-train_df = pd.DataFrame(raw_train_df[~pd.isnull(raw_train_df["builtin"])])
+# removing rows which have builtin = NAN and/or mood NAN -> there is no phone data available for those days, only in the beginning
+train_df = pd.DataFrame(raw_train_df[ (~pd.isnull(raw_train_df["builtin"])) ])
+train_df = pd.DataFrame(train_df[ (~pd.isnull(train_df["mood"])) ])
+
 
 # %%
 # very fancy way to put the mood column last :p
