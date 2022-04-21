@@ -2,7 +2,7 @@
 # Every thingh is going to be inside this 
 # %% 
 # imports
-from pickletools import read_bytes1
+from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 import seaborn as sns
 import numpy as np
@@ -162,7 +162,13 @@ callsms_avg_df
 # callsms_avg_df.groupby(by=["id","variable"]).describe()
 # %%
 # TODO: Handle activity properly
-raw_df[raw_df["variable"] == "activity"].sort_index() #.groupby(by=["id","date"]).count()
+activity_df = raw_df[raw_df["variable"] == "activity"].sort_index() #.groupby(by=["id","date"]).count()
+activity_avg_df = activity_df.set_index("time") \
+    .groupby(by=["id","variable"])["value"] \
+    .resample("1D").sum().reset_index()
+activity_avg_df = activity_avg_df.rename(columns={"time":"date"})
+
+
 # %%
 # TODO: handle screentime properly
 raw_df[raw_df["variable"] == "screen"].sort_index() #.groupby(by=["id","date"]).count()
@@ -175,7 +181,7 @@ screen_avg_df= screen_avg_df.rename(columns={"time":"date"})
 screen_avg_df
 
 
-#%%
+#%% 
 mood_df = raw_df[raw_df["variable"] == "mood"]
 
 mood_avg_df = mood_df.set_index("time") \
@@ -187,66 +193,38 @@ mood_avg_df= mood_avg_df.rename(columns={"time":"date"})
 
 mood_avg_df
 
+
+
 #%%
-#arousal data
-arousal_df = raw_df[raw_df["variable"] == "circumplex.arousal"]
-arousal_df["value"] =  arousal_df["value"] + 2
+#valence data processing
+circumplex_df = raw_df[(raw_df["variable"] == "circumplex.valence") | (raw_df["variable"] == "circumplex.arousal")]
+circumplex_df["value"] = circumplex_df["value"] + 2
 
-
-
-arousal_avg_df = arousal_df.set_index("time")\
+circumplex_avg_df = circumplex_df.set_index("time")\
     .groupby(by=["id","variable"])["value"] \
     .resample("1D").mean().reset_index()
 
+# first forward fill with limit of 2 for intermediate nan values, then set all nan values left to average(2)
+circumplex_avg_df['value'] = circumplex_avg_df['value'].fillna(method='ffill', limit=2)
+circumplex_avg_df['value'] = circumplex_avg_df['value'].replace(np.nan, 2)
+circumplex_avg_df= circumplex_avg_df.rename(columns={"time":"date"})
 
-arousal_avg_df['value'] = arousal_avg_df['value'].fillna(method='ffill', limit=2)
-
-arousal_avg_df['value'] = arousal_avg_df['value'].replace(np.nan, 2)
-arousal_avg_df= arousal_avg_df.rename(columns={"time":"date"})
-
-arousal_avg_df
-
-#%%
-#valence data 
-V_df = raw_df[raw_df["variable"] == "circumplex.valence"]
-V_df["value"] = V_df["value"] + 2
-
-
-
-V_avg_df = V_df.set_index("time")\
-    .groupby(by=["id","variable"])["value"] \
-    .resample("1D").mean().reset_index()
-
-V_avg_df
-
-V_avg_df['value'] = V_avg_df['value'].fillna(method='ffill', limit=2)
-
-V_avg_df['value'] = V_avg_df['value'].replace(np.nan, 2)
-V_avg_df= V_avg_df.rename(columns={"time":"date"})
-
-V_avg_df
-
-#%%
-# screen_avg_df["log(value)"] = np.log(screen_avg_df["value"])
-#TODO: Show thre boys and discuss if we want to log these values as well
-
-# sns.boxenplot(data=screen_avg_df, x="id", y="log(value)")
-# %%
-
-avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df,appcat_log_df,screen_avg_df,mood_avg_df, arousal_avg_df, V_avg_df ])[["id","date","variable", "value"]])
-avg_day_df
+# circumplex_avg_df
 
 # %%
+# concat. all the separately processed data
+avg_day_df = pd.DataFrame(pd.concat([callsms_avg_df, appcat_log_df, screen_avg_df, mood_avg_df, circumplex_avg_df, activity_avg_df ])[["id","date","variable", "value"]])
+
+# creating columns from all variables 
 raw_train_df = avg_day_df.pivot(index=["id","date"],columns=["variable"], values=["value"])["value"]
 raw_train_df
 
 # %%
-# checking if my assumption is correct:
-# all the values are in the beginning of the dataset and if the builtin is zero, then all the other appcat values are also zero.
+# # checking if my assumption is correct:
+# # all the values are in the beginning of the dataset and if the builtin is zero, then all the other appcat values are also zero.
+# raw_train_df[pd.isnull(raw_train_df["builtin"])]
 
-raw_train_df[pd.isnull(raw_train_df["builtin"])]
-# %%
-# train_df = raw_train_df.drop(pd.isnull(raw_train_df["builtin"]))
+# removing rows which have builtin = NAN -> there is no phone data available for those days, only in the beginning
 train_df = pd.DataFrame(raw_train_df[~pd.isnull(raw_train_df["builtin"])])
 
 # %%
@@ -255,54 +233,15 @@ train_df = train_df[[c for c in train_df if c not in ['mood']]+ ['mood']]
 train_df = train_df.fillna(0)
 display(train_df)
 
-#%%
-# Trying to set the mood of the next day to the row of the current day. 
-test_shift_df = train_df.copy()
-# need to remove last day per id because of the shift
-
-#%%
-# windowed_df = train_df.groupby(level=0).rolling(5).mean()
-# # windowed_df["mood"] = train_df["mood"].values
-# windowed_df.insert(0, "builtin(1)", train_df["builtin"].values)
-# # windowed_df.set_index(["builtin"],0)
-# windowed_df["mood(t+1)"] = train_df.groupby(level=0)['mood'].shift(-1).values
-# train_df = train_df.reset_index()
-moods = train_df.groupby(level=0)['mood'].shift(-1).values
-windowed_df = train_df.groupby(level=0).rolling(5).mean()
-windowed_df["mood"] = moods
-
-# display(train_df.groupby(level=0)['mood'].shift(-1))
-#%%
-na_df = windowed_df.dropna()
-na_df
 # %%
-from sklearn.preprocessing import MinMaxScaler
-import os
 
-
-#%%
 
 scaler = MinMaxScaler(feature_range=(0,1))
 
-# 
 # This applies a scalar transform per id per column
 df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_transform(x), columns=x.columns, index=x.index).round(5))
-# df_scaled = df_scaled.reset_index()
 df_scaled
 
 #%%
-# df_scaled.to_csv("data/train_data_v1.csv")
+df_scaled.to_csv("data/train_data_v1.csv")
 
-#%%
-column_list = df_scaled.columns
-x_columns = column_list.to_list()
-x_columns.remove("mood")
-
-x_df = df_scaled[x_columns]
-y_df = df_scaled["mood"]
-
-print(y_df.to_numpy())
-# x_df = df_scaled.reset_index()column_list.d
-# ]
-# %%
-# %%

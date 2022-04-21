@@ -52,8 +52,9 @@ print(f"Using {DEVICE} DEVICE")
 
 criterion = nn.MSELoss()
 train_loader, test_loader = get_dataset_V1(100, 2)
-model = NeuralNetwork(input_size=18, layer_size=50).to(DEVICE)
+model = NeuralNetwork(input_size=19, nlayers=17, layer_size=50, dropout=0.35).to(DEVICE)
 optimizer = optim.SGD(model.parameters(), lr=0.001)
+best_vloss = 1_000_000.
 
 num_epochs = 2000
 for epoch in range(num_epochs):
