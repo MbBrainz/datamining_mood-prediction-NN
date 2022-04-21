@@ -19,21 +19,24 @@ import matplotlib.pyplot as plt
 from MoodDataset import get_dataset_V1
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_size, layer_size):
+    def __init__(self, input_size, layer_size, nlayers, dropout):
         super(NeuralNetwork, self).__init__()
         
         self.flatten = nn.Flatten()
-        self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_size, layer_size),
-            nn.ReLU(),
-            nn.Linear(layer_size,layer_size),
-            nn.ReLU(),
-            nn.Linear(layer_size, layer_size),
-            nn.ReLU(),
-            nn.Linear(layer_size, 1)
-            # nn.Softmax(1) #just to get output size 1x1
-        )
-        # keeping track of error development
+        layers = []
+        # first layer needs in features equal to the input size
+        layers.append(nn.Linear(in_features=input_size, out_features=layer_size))
+        
+        #defining hidden layers 
+        for i in range(nlayers):
+            layers.append(torch.nn.Linear(layer_size, layer_size))
+            layers.append(torch.nn.ReLU())
+            layers.append(nn.Dropout(dropout))
+        
+        #defining output layer
+        layers.append(nn.Linear(layer_size, 1))
+        
+        self.linear_relu_stack = nn.Sequential(*layers)
         self.error_list = []
 
 
@@ -49,7 +52,7 @@ print(f"Using {DEVICE} DEVICE")
 
 criterion = nn.MSELoss()
 train_loader, test_loader = get_dataset_V1(100, 2)
-model = NeuralNetwork(input_size=17, layer_size=50).to(DEVICE)
+model = NeuralNetwork(input_size=18, layer_size=50).to(DEVICE)
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
 num_epochs = 2000
@@ -72,6 +75,7 @@ for epoch in range(num_epochs):
         
         optimizer.step()
         print(f"[Epoch{epoch} batch{batch_idx}] loss = {loss}")
+        
     model.error_list.append(np.mean(losses))
         
 #%%
@@ -103,17 +107,34 @@ print(f'Correct Predictions: {correct}/{total}')
 #%%        
 # check accuracy
  
-# def check_accuracy(loader, model: nn.Module):
-#     model.eval()
+def check_accuracy(loader, model: nn.Module):
+    model.eval()
+    num_correct = 0
+    num_samples = 0
     
-#     with torch.no_grad():
-#         for x, y in loader:
-#             x= x.to(device=DEVICE)
-#             y= y.to(device=DEVICE)
-#             x = x.reshape(x.shape[0],-1)
+    with torch.no_grad():
+        for x, y in loader:
+            x= x.to(device=DEVICE)
+            y= y.to(device=DEVICE)
+            print(f"x shape {x.shape}")
+            x = x.reshape(x.shape[0],-1)
+            print(f"x shape {x.shape}")
+            print(f"y shape {y.shape}")
+            print(f"y shape0 {y.shape[0]}")
             
-#             scores = model(x)
-#             _, prediction = scores.max()
+            scores = model(x)
+            print(f"scores shape: {scores.shape}")
+            error = np.abs(scores.reshape(-1).numpy()-y.numpy())
+            num_samples += y.shape[0]
+            # print(error.shape)
+            # print((error < 0.025))
+            num_correct += (error < 0.05).sum()
+    
+
+    accuracy = num_correct / num_samples
+    print(f"for {num_samples} samples {num_correct} correct, accuracy: {accuracy:.3f}")            
             
-    
-    
+            
+# %%
+check_accuracy(test_loader, model)
+# %%

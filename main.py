@@ -274,7 +274,7 @@ windowed_df["mood"] = moods
 # display(train_df.groupby(level=0)['mood'].shift(-1))
 #%%
 na_df = windowed_df.dropna()
-
+na_df
 # %%
 from sklearn.preprocessing import MinMaxScaler
 import os
@@ -291,8 +291,9 @@ df_scaled = train_df.groupby(level=0).apply(lambda x : pd.DataFrame(scaler.fit_t
 df_scaled
 
 #%%
-df_scaled.to_csv("data/train_data_v1.csv")
+# df_scaled.to_csv("data/train_data_v1.csv")
 
+#%%
 column_list = df_scaled.columns
 x_columns = column_list.to_list()
 x_columns.remove("mood")

@@ -1,4 +1,5 @@
 #%%
+from matplotlib import pyplot as plt
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader, Dataset, random_split
@@ -30,17 +31,23 @@ N_TRAIN_EXAMPLES = 100 * 3
 N_TEST_EXAMPLES = 10 * 3
 
 def define_model(trial):
-    n_layers =  trial.suggest_int("n_layers", 1, 10)
+    
+    #internal hyper parameters
+    n_layers =  trial.suggest_int("n_layers", 1, 30)
+    out_features = trial.suggest_int(f"n_neurons", 8, 128)
+    p = trial.suggest_float("dropout", 0.2, 0.5)
+    
     global features
     in_features = features
+    
     layers = []
     for i in range(n_layers):
         # HP: optimize number of neurons per layer
-        # TODO: discuss network layer design
-        out_features = trial.suggest_int(f"n_units_l{i}", 8, 128)
+        # out_features = trial.suggest_int(f"n_units_l{i}", 8, 128)
+        # p = trial.suggest_float("dropout_l{}".format(i), 0.2, 0.5)
+        
         layers.append(torch.nn.Linear(in_features, out_features))
         layers.append(torch.nn.ReLU())
-        p = trial.suggest_float("dropout_l{}".format(i), 0.2, 0.5)
         layers.append(nn.Dropout(p))
         
         in_features = out_features
@@ -53,13 +60,14 @@ def define_model(trial):
 # This function describes how optuna will test the model
 def objective(trial: optuna.Trial):
     ## hyperparameters outside model
-    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
+    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD", "RMSprop"])
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
     mse_loss = nn.MSELoss()
     # TODO: check R^2 method
+    day_window = trial.suggest_int("day_window", 1, 10)
     
     model = define_model(trial).to(DEVICE)
-    train_loader, test_loader = get_dataset_V1(BACHSIZE)
+    train_loader, test_loader = get_dataset_V1(BACHSIZE, day_window=day_window)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     
     
@@ -83,26 +91,31 @@ def objective(trial: optuna.Trial):
         # starts the evaluation mode of the model  for this epoch
         model.eval()
         correct = 0
+        losses = []
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(test_loader):
                 # # Limiting validation data.
                 if batch_idx * BACHSIZE >= N_TEST_EXAMPLES:
                     break
-                data, target = data.to(DEVICE), target.to(DEVICE)
+                data, target = data.to(DEVICE), target.unsqueeze(1).to(DEVICE)
                 output = model(data)
                 # Get the index of the max log-probability.
-                pred = output.argmax(dim=1, keepdim=True)
-                correct += pred.eq(target.view_as(pred)).sum().item()
+                output = model(data)
+                loss = mse_loss(output, target)
+                
+                losses.append(loss)
+                # pred = output.argmax(dim=1, keepdim=True)
+                # correct += pred.eq(target.view_as(pred)).sum().item()
 
-        accuracy = correct / min(len(test_loader.dataset), N_TEST_EXAMPLES)
-
-        trial.report(accuracy, epoch)
+        # accuracy = correct / min(len(test_loader.dataset), N_TEST_EXAMPLES)
+        mean_loss = np.mean(losses)
+        trial.report(mean_loss, epoch)
 
         # Handle pruning based on the intermediate value.
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
-    return accuracy
+    return mean_loss
 
 #%%
 
@@ -127,7 +140,12 @@ for key, value in trial.params.items():
     print("    {}: {}".format(key, value))
 
 # %%
+optuna.visualization.plot_contour(study,["n_layers", "day_window"])
 
+importances = optuna.importance.get_param_importances(study)
+print(importances)
+
+plt.bar(importances.keys(),importances.values())
 # %%
 # ------------------- Temporal NN (RNN or LSTM) ----------------------
 # TODO: implement
